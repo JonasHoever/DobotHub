@@ -65,18 +65,28 @@ class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
     # In production, all secrets should come from environment
-    SECRET_KEY = os.getenv("SECRET_KEY")  # Must be set
-    JWT_SECRET = os.getenv("JWT_SECRET")  # Must be set
-    MARIADB_PASSWORD = os.getenv("MARIADB_PASSWORD")  # Must be set
-    if not all([SECRET_KEY, JWT_SECRET, MARIADB_PASSWORD]):
-        raise ValueError("Required environment variables missing in production")
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    JWT_SECRET = os.getenv("JWT_SECRET")
+    MARIADB_PASSWORD = os.getenv("MARIADB_PASSWORD")
+    
+    def __init__(self):
+        super().__init__()
+        # Validate required environment variables
+        if not all([self.SECRET_KEY, self.JWT_SECRET, self.MARIADB_PASSWORD]):
+            raise ValueError("Required environment variables missing in production: "
+                           "SECRET_KEY, JWT_SECRET, MARIADB_PASSWORD")
 
 
 # Load config based on FLASK_ENV
-ENV = os.getenv("FLASK_ENV", "development")
-if ENV == "production":
-    config = ProductionConfig()
-elif ENV == "testing":
-    config = TestingConfig()
-else:
-    config = DevelopmentConfig()
+def get_config():
+    """Factory function to load appropriate config"""
+    env = os.getenv("FLASK_ENV", "development")
+    if env == "production":
+        return ProductionConfig()
+    elif env == "testing":
+        return TestingConfig()
+    else:
+        return DevelopmentConfig()
+
+
+config = get_config()
