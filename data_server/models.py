@@ -23,7 +23,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
-    projects = relationship("Project", back_populates="created_by_user")
+    projects = relationship("Project", foreign_keys="[Project.created_by]", back_populates="created_by_user")
     edits = relationship("ProjectVersion", back_populates="changed_by_user")
     
     __table_args__ = (
@@ -73,7 +73,7 @@ class Project(Base):
     locked_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     locked_until = Column(DateTime, nullable=True)
     
-    created_by_user = relationship("User", foreign_keys=[created_by])
+    created_by_user = relationship("User", foreign_keys=[created_by], back_populates="projects")
     updated_by_user = relationship("User", foreign_keys=[updated_by])
     locked_by_user = relationship("User", foreign_keys=[locked_by])
     
