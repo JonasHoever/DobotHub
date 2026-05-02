@@ -14,9 +14,12 @@ fi
 # Activate virtual environment
 source venv/bin/activate
 
+# Default port to 8080 if not specified
+PORT=${1:-8080}
+
 # Start the Flask server
-echo "Starting Flask server on http://localhost:5000"
+echo "Starting Flask server on http://localhost:$PORT"
 echo "Press Ctrl+C to stop"
 echo ""
 
-python3 web_server.py
+python3 web_server.py "$PORT"

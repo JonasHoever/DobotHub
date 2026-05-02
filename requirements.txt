@@ -2,3 +2,4 @@ flask
 pydobotplus
 pyserial
 pyray
+requests

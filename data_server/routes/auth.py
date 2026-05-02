@@ -11,6 +11,43 @@ from utils import generate_uuid, generate_token, verify_token, hash_password, ve
 auth_bp = Blueprint("auth", __name__)
 
 
+@auth_bp.post("/register")
+def register():
+    """
+    POST /api/auth/register
+    Register a new user
+    """
+    data = request.get_json()
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    email = data.get("email", "").strip()
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+        
+    if db.session.query(User).filter_by(username=username).first():
+        return jsonify({"error": "Username already exists"}), 409
+        
+    password_hash = hash_password(password)
+    user = User(
+        id=generate_uuid(),
+        username=username,
+        email=email if email else None,
+        password_hash=password_hash,
+        is_active=True
+    )
+    db.session.add(user)
+    db.session.commit()
+    
+    current_app.logger.info(f"New user registered: {username}")
+    
+    return jsonify({
+        "ok": True,
+        "message": "User registered successfully",
+        "user_id": user.id
+    }), 201
+
+
 @auth_bp.post("/login")
 def login():
     """
@@ -26,7 +63,7 @@ def login():
         return jsonify({"error": "Username and password required"}), 400
     
     # Find user by username
-    user = User.query.filter_by(username=username, is_active=True).first()
+    user = db.session.query(User).filter_by(username=username, is_active=True).first()
     if not user or not verify_password(password, user.password_hash):
         return jsonify({"error": "Invalid credentials"}), 401
     
@@ -64,7 +101,7 @@ def validate():
     Verify token is valid and return extended session info
     Requires: Authorization: Bearer <token>
     """
-    user = User.query.get(request.user_id)
+    user = db.session.query(User).get(request.user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
     

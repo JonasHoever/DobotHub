@@ -926,7 +926,9 @@
         <button id="btn-refresh" class="ghost">↻</button>
         <button id="btn-connect" class="primary">Connect</button>
         <button id="btn-home" class="ghost">Home</button>
-        <div class="user-avatar" title="Jonas Hover">J</div>
+        <span id="cloud-status" style="display:none; margin-left: 1rem; padding: 0.3rem 0.8rem; border-radius: 0.25rem; background: #28a745; font-size: 0.75rem; font-weight: 600;">● ONLINE</span>
+        <button id="btn-login" class="ghost" style="margin-left: 1rem;">Login</button>
+        <button id="btn-logout" class="ghost" style="display:none; margin-left: 1rem;">Logout</button>
       </div>
     </header>
 
@@ -1311,6 +1313,28 @@
         <div id="script-load-list"></div>
         <div class="btn-row" style="margin-top: 10px">
           <button id="slm-cancel" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cloud Login Modal -->
+    <div id="login-modal" class="modal hidden">
+      <div class="mbox">
+        <div class="mtitle">Cloud Login</div>
+        <div style="margin: 1.5rem 0;">
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Username</label>
+            <input type="text" id="login-username" placeholder="admin" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div style="margin-top: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Password</label>
+            <input type="password" id="login-password" placeholder="••••••" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 0.8rem;"></div>
+        </div>
+        <div class="btn-row">
+          <button id="login-cancel" class="ghost">Cancel</button>
+          <button id="lm-submit" class="primary">Login</button>
         </div>
       </div>
     </div>
@@ -3165,7 +3189,104 @@
           if (e.target === $("script-load-modal"))
             $("script-load-modal").classList.add("hidden");
         };
+
+        // Cloud Login Handler
+        $("btn-login").onclick = () => {
+          $("login-modal").classList.remove("hidden");
+          $("login-username").focus();
+        };
+        $("btn-logout").onclick = async () => {
+          const resp = await fetch("/api/auth/logout", { method: "POST" });
+          if (resp.ok) {
+            updateCloudStatus();
+          }
+        };
+        $("login-modal").onclick = (e) => {
+          if (e.target === $("login-modal")) closeLoginModal();
+        };
+        $("login-cancel").onclick = closeLoginModal;
+        $("lm-submit").onclick = submitLogin;
+        
+        $("login-username").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") submitLogin();
+        });
+        $("login-password").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") submitLogin();
+        });
+
+        // Check cloud status on load
+        updateCloudStatus();
+        setInterval(updateCloudStatus, 5000); // Poll every 5 seconds
       });
+
+      function closeLoginModal() {
+        $("login-modal").classList.add("hidden");
+        $("login-username").value = "";
+        $("login-password").value = "";
+        $("login-error").textContent = "";
+      }
+
+      async function submitLogin() {
+        const username = $("login-username").value.trim();
+        const password = $("login-password").value;
+
+        if (!username || !password) {
+          $("login-error").textContent = "Username and password required";
+          return;
+        }
+
+        $("lm-submit").disabled = true;
+        $("lm-submit").textContent = "Logging in...";
+
+        try {
+          const resp = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+
+          if (resp.ok) {
+            closeLoginModal();
+            updateCloudStatus();
+          } else if (resp.status === 503) {
+            $("login-error").textContent = "Server offline (changes will sync when online)";
+          } else {
+            const data = await resp.json();
+            $("login-error").textContent = data.error || "Login failed";
+          }
+        } catch (e) {
+          $("login-error").textContent = `Network error: ${e.message}`;
+        } finally {
+          $("lm-submit").disabled = false;
+          $("lm-submit").textContent = "Login";
+        }
+      }
+
+      async function updateCloudStatus() {
+        try {
+          const resp = await fetch("/api/auth/status");
+          if (!resp.ok) return;
+          const status = await resp.json();
+
+          const $cloudStatus = $("cloud-status");
+          const $btnLogin = $("btn-login");
+          const $btnLogout = $("btn-logout");
+
+          if (status.authenticated) {
+            $cloudStatus.textContent = `● ONLINE (${status.user_id?.slice(0, 8) || "User"})`;
+            $cloudStatus.style.display = "inline-block";
+            $cloudStatus.style.background = status.is_online ? "#28a745" : "#ffb300";
+            $btnLogin.style.display = "none";
+            $btnLogout.style.display = "inline-block";
+          } else {
+            $cloudStatus.style.display = "none";
+            $btnLogin.style.display = "inline-block";
+            $btnLogout.style.display = "none";
+          }
+        } catch (e) {
+          console.log("Cloud status check failed:", e);
+        }
+      }
     </script>
   </body>
 </html>

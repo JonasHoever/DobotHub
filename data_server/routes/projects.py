@@ -19,7 +19,7 @@ def list_projects():
     GET /api/projects
     List all projects visible to authenticated user
     """
-    projects = Project.query.all()
+    projects = db.session.query(Project).all()
     
     result = []
     for proj in projects:
@@ -44,7 +44,7 @@ def get_project(project_id: str):
     GET /api/projects/<project_id>
     Get full project content
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -82,7 +82,7 @@ def create_project():
         return jsonify({"error": "Project name required"}), 400
     
     # Check for duplicate name
-    existing = Project.query.filter_by(name=name).first()
+    existing = db.session.query(Project).filter_by(name=name).first()
     if existing:
         return jsonify({"error": "Project name already exists"}), 409
     
@@ -129,7 +129,7 @@ def update_project(project_id: str):
     Update project content with revision check
     Detects conflicts if expected_revision != server revision
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -142,7 +142,7 @@ def update_project(project_id: str):
     
     # Check for revision mismatch (conflict detection)
     if expected_revision is not None and expected_revision != project.revision:
-        latest_version = ProjectVersion.query.filter_by(
+        latest_version = db.session.query(ProjectVersion).filter_by(
             project_id=project_id,
             revision=project.revision
         ).first()
@@ -209,7 +209,7 @@ def delete_project(project_id: str):
     DELETE /api/projects/<project_id>
     Delete project and all versions/events
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     

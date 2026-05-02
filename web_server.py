@@ -6,12 +6,16 @@ import json
 import logging
 import os
 import queue
+import socket
 import sys
 import threading
 import time
 from typing import List, Optional
+from urllib.parse import urljoin
+import base64
 
 import struct
+import requests
 
 from flask import Flask, Response, jsonify, request, send_file, stream_with_context
 from pydobotplus import Dobot
@@ -1430,9 +1434,161 @@ class DobotCore:
             self.seq_stop_evt.wait(timeout=0.1)
 
 
+# ── Remote Cloud Sync Manager ─────────────────────────────────────────────────
+
+
+class RemoteSyncManager:
+    """Manages sync between local DobotHub and remote data_server"""
+    
+    def __init__(self, server_url: str = "http://localhost:5001"):
+        self.server_url = server_url
+        self.token = None
+        self.user_id = None
+        self.session_id = None
+        self.is_online = False
+        self.last_error = None
+        self.sync_queue = []  # Queue of pending changes
+        self.max_retries = 3
+        self.retry_backoff = 1  # seconds, exponential
+        self._lock = threading.Lock()
+        self.log = logging.getLogger("sync")
+        
+    def login(self, username: str, password: str) -> dict:
+        """Authenticate with remote server"""
+        try:
+            resp = requests.post(
+                f"{self.server_url}/api/auth/login",
+                json={"username": username, "password": password},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                self.token = data.get("token")
+                self.user_id = data.get("user_id")
+                self.session_id = data.get("session_id")
+                self.is_online = True
+                self.last_error = None
+                self.log.info(f"Logged in as {username}")
+                return {"ok": True, "user_id": self.user_id}
+            else:
+                error = resp.json().get("error", "Login failed")
+                self.last_error = error
+                self.log.error(f"Login failed: {error}")
+                return {"ok": False, "error": error}
+        except requests.RequestException as e:
+            self.is_online = False
+            self.last_error = str(e)
+            self.log.error(f"Login error (offline): {e}")
+            return {"ok": False, "error": "Network error", "offline": True}
+    
+    def logout(self):
+        """Revoke token"""
+        if not self.token:
+            return {"ok": True}
+        try:
+            requests.post(
+                f"{self.server_url}/api/auth/logout",
+                headers={"Authorization": f"Bearer {self.token}"},
+                timeout=5
+            )
+        except Exception:
+            pass
+        finally:
+            self.token = None
+            self.user_id = None
+            self.session_id = None
+            self.is_online = False
+            self.log.info("Logged out")
+        return {"ok": True}
+    
+    def get_status(self) -> dict:
+        """Get current auth + online status"""
+        return {
+            "authenticated": bool(self.token),
+            "user_id": self.user_id,
+            "session_id": self.session_id,
+            "is_online": self.is_online,
+            "last_error": self.last_error,
+            "server_url": self.server_url,
+        }
+    
+    def get_auth_header(self) -> dict:
+        """Get Authorization header for authenticated requests"""
+        if not self.token:
+            return {}
+        return {"Authorization": f"Bearer {self.token}"}
+    
+    def get_projects(self) -> dict:
+        """List projects from remote server"""
+        if not self.token:
+            return {"ok": False, "error": "Not authenticated"}
+        try:
+            resp = requests.get(
+                f"{self.server_url}/api/projects",
+                headers=self.get_auth_header(),
+                timeout=5
+            )
+            if resp.status_code == 200:
+                self.is_online = True
+                return resp.json()
+            elif resp.status_code == 401:
+                self.token = None
+                return {"ok": False, "error": "Token expired"}
+            else:
+                return {"ok": False, "error": resp.json().get("error", "Unknown error")}
+        except requests.RequestException as e:
+            self.is_online = False
+            self.last_error = str(e)
+            return {"ok": False, "error": "Network error", "offline": True}
+    
+    def save_project(self, project_id: str, name: str, proj_type: str, content: dict) -> dict:
+        """Save/sync project to remote server"""
+        if not self.token:
+            with self._lock:
+                self.sync_queue.append({
+                    "action": "save_project",
+                    "project_id": project_id,
+                    "name": name,
+                    "type": proj_type,
+                    "content": content,
+                })
+            return {"ok": True, "offline": True}
+        
+        try:
+            resp = requests.post(
+                f"{self.server_url}/api/projects",
+                json={"name": name, "type": proj_type, "content": content},
+                headers=self.get_auth_header(),
+                timeout=5
+            )
+            if resp.status_code == 201:
+                self.is_online = True
+                return resp.json()
+            elif resp.status_code == 409:
+                # Conflict
+                conflict_data = resp.json()
+                return {"ok": False, "error": "conflict", "conflict": conflict_data}
+            else:
+                return {"ok": False, "error": resp.json().get("error", "Save failed")}
+        except requests.RequestException as e:
+            self.is_online = False
+            with self._lock:
+                self.sync_queue.append({
+                    "action": "save_project",
+                    "project_id": project_id,
+                    "name": name,
+                    "type": proj_type,
+                    "content": content,
+                })
+            return {"ok": True, "offline": True, "queued": True}
+
+
 # ── Flask app ─────────────────────────────────────────────────────────────────
 
 core = DobotCore()
+sync_manager = RemoteSyncManager(
+    server_url=os.getenv("DOBOT_DATA_SERVER", "http://localhost:5001")
+)
 app = Flask(__name__)
 
 
@@ -1741,7 +1897,116 @@ def api_positions_go(name):
     return ok()
 
 
+# ── Cloud Auth Endpoints ──────────────────────────────────────────────────────
+
+
+@app.post("/api/auth/login")
+def api_auth_login():
+    """Login to remote data_server via local proxy"""
+    d = request.get_json(force=True) or {}
+    username = d.get("username", "").strip()
+    password = d.get("password", "")
+    
+    if not username or not password:
+        return jsonify(error="username and password required"), 400
+    
+    result = sync_manager.login(username, password)
+    if result.get("ok"):
+        return jsonify(result), 200
+    else:
+        status_code = 503 if result.get("offline") else 401
+        return jsonify(result), status_code
+
+@app.post("/api/auth/register")
+def api_auth_register():
+    """Register a new user on remote data_server via local proxy"""
+    d = request.get_json(force=True) or {}
+    if "username" not in d or "password" not in d:
+        return jsonify(error="username and password required"), 400
+        
+    try:
+        resp = requests.post(
+            f"{sync_manager.server_url}/api/auth/register",
+            json=d,
+            timeout=5
+        )
+        return jsonify(resp.json()), resp.status_code
+    except requests.exceptions.RequestException:
+        return jsonify(error="server unreachable"), 503
+
+@app.post("/api/auth/logout")
+def api_auth_logout():
+    """Logout from remote server"""
+    result = sync_manager.logout()
+    return jsonify(result), 200
+
+
+@app.get("/api/auth/status")
+def api_auth_status():
+    """Get current auth + online status"""
+    status = sync_manager.get_status()
+    return jsonify(status), 200
+
+
+@app.get("/api/cloud/projects")
+def api_cloud_projects():
+    """List projects from remote server"""
+    result = sync_manager.get_projects()
+    return jsonify(result), 200 if result.get("ok", True) else 400
+
+
+@app.post("/api/cloud/projects")
+def api_cloud_save_project():
+    """Save project to remote server"""
+    d = request.get_json(force=True) or {}
+    project_id = d.get("project_id", "")
+    name = d.get("name", "").strip()
+    proj_type = d.get("type", "blockly")
+    content = d.get("content", {})
+    
+    if not name:
+        return jsonify(error="name required"), 400
+    
+    result = sync_manager.save_project(project_id, name, proj_type, content)
+    
+    if result.get("error") == "conflict":
+        return jsonify(result), 409
+    elif result.get("ok"):
+        return jsonify(result), 200 if not result.get("offline") else 202
+    else:
+        status_code = 503 if result.get("offline") else 400
+        return jsonify(result), status_code
+
+
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    print(f"\n  Dobot Web UI  →  http://localhost:{port}\n")
-    app.run(host="0.0.0.0", port=port, threaded=True, use_reloader=False)
+    def _can_bind(port_to_check: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(("0.0.0.0", port_to_check))
+            except OSError:
+                return False
+        return True
+
+    def _select_port(preferred: int, scan_count: int = 50) -> int:
+        if _can_bind(preferred):
+            return preferred
+        for candidate in range(preferred + 1, preferred + scan_count + 1):
+            if _can_bind(candidate):
+                print(
+                    f"⚠️  Port {preferred} ist belegt. Nutze stattdessen Port {candidate}."
+                )
+                return candidate
+        fallback = preferred + scan_count + 1
+        print(
+            f"⚠️  Kein freier Port im Bereich {preferred}-{preferred + scan_count}. "
+            f"Versuche Port {fallback}."
+        )
+        return fallback
+
+    requested_port = (
+        int(sys.argv[1]) if len(sys.argv) > 1 else int(os.getenv("PORT", 8080))
+    )
+    port = _select_port(requested_port)
+    print(f"\n🚀 DobotHub starting on http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)

@@ -19,7 +19,7 @@ def acquire_lock(project_id: str):
     POST /api/projects/<project_id>/lock
     Acquire lock on project for editing
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -56,7 +56,7 @@ def release_lock(project_id: str):
     POST /api/projects/<project_id>/unlock
     Release lock on project
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -80,7 +80,7 @@ def update_presence(project_id: str):
     POST /api/projects/<project_id>/presence
     Update presence status (heartbeat)
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -88,7 +88,7 @@ def update_presence(project_id: str):
     action = data.get("action", "online")  # online, idle, offline
     
     # Find or create presence record
-    presence = Presence.query.filter_by(
+    presence = db.session.query(Presence).filter_by(
         user_id=request.user_id,
         session_id=request.session_id,
         project_id=project_id
@@ -110,7 +110,7 @@ def update_presence(project_id: str):
     db.session.commit()
     
     # Return current presence list for project
-    all_presence = Presence.query.filter_by(project_id=project_id).all()
+    all_presence = db.session.query(Presence).filter_by(project_id=project_id).all()
     presence_list = []
     for p in all_presence:
         presence_list.append({
@@ -130,7 +130,7 @@ def append_event(project_id: str):
     POST /api/projects/<project_id>/events
     Append collaboration event (step_added, step_edited, etc.)
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
@@ -142,7 +142,7 @@ def append_event(project_id: str):
         return jsonify({"error": "event_type required"}), 400
     
     # Get next sequence number for this project
-    last_event = CollaborationEvent.query.filter_by(project_id=project_id).order_by(
+    last_event = db.session.query(CollaborationEvent).filter_by(project_id=project_id).order_by(
         CollaborationEvent.sequence.desc()
     ).first()
     next_sequence = (last_event.sequence if last_event else 0) + 1
@@ -175,13 +175,13 @@ def get_events(project_id: str):
     GET /api/projects/<project_id>/events?since=<sequence_num>
     Get collaboration events since given sequence
     """
-    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
     since = request.args.get("since", 0, type=int)
     
-    events = CollaborationEvent.query.filter(
+    events = db.session.query(CollaborationEvent).filter(
         CollaborationEvent.project_id == project_id,
         CollaborationEvent.sequence > since
     ).order_by(CollaborationEvent.sequence.asc()).all()
