@@ -4,6 +4,8 @@ data_server/utils.py — Shared utilities (JWT, UUIDs, auth checks)
 
 import jwt
 import uuid
+import hashlib
+import json
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, current_app
@@ -82,5 +84,11 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     """Verify password against hash"""
+
+
+def compute_checksum(content_dict: dict) -> str:
+    """Compute SHA256 checksum of content for conflict detection"""
+    json_str = json.dumps(content_dict, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(json_str.encode()).hexdigest()
     from werkzeug.security import check_password_hash
     return check_password_hash(password_hash, password)

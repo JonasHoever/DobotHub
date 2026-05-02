@@ -7,8 +7,6 @@ from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-import hashlib
-import json
 
 Base = declarative_base()
 
@@ -150,10 +148,3 @@ class Presence(Base):
         Index("idx_project_user", "project_id", "user_id"),
         Index("idx_last_heartbeat", "last_heartbeat"),
     )
-
-
-# Helper functions for data preparation
-def compute_checksum(content_dict: dict) -> str:
-    """Compute SHA256 checksum of content for conflict detection"""
-    json_str = json.dumps(content_dict, sort_keys=True, separators=(',', ':'))
-    return hashlib.sha256(json_str.encode()).hexdigest()
