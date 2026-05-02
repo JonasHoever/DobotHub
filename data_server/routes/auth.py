@@ -1,0 +1,133 @@
+"""
+data_server/routes/auth.py — Authentication endpoints (login, validate, logout)
+"""
+
+from flask import Blueprint, request, jsonify, current_app
+from datetime import datetime, timedelta
+from app import db
+from models import User, Session
+from utils import generate_uuid, generate_token, verify_token, hash_password, verify_password, require_auth
+
+auth_bp = Blueprint("auth", __name__)
+
+
+@auth_bp.post("/login")
+def login():
+    """
+    POST /api/auth/login
+    Login with username/password
+    Returns JWT token and session info
+    """
+    data = request.get_json()
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+    
+    # Find user by username
+    user = User.query.filter_by(username=username, is_active=True).first()
+    if not user or not verify_password(password, user.password_hash):
+        return jsonify({"error": "Invalid credentials"}), 401
+    
+    # Create session and token
+    session_id = generate_uuid()
+    token = generate_token(user.id, current_app.config)
+    expires_at = datetime.utcnow() + current_app.config.JWT_EXPIRY
+    
+    session = Session(
+        id=session_id,
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+        is_active=True
+    )
+    db.session.add(session)
+    db.session.commit()
+    
+    current_app.logger.info(f"User {username} (session {session_id}) logged in")
+    
+    return jsonify({
+        "ok": True,
+        "token": token,
+        "expires_in": int(current_app.config.JWT_EXPIRY.total_seconds()),
+        "user_id": user.id,
+        "session_id": session_id,
+    }), 200
+
+
+@auth_bp.post("/validate")
+@require_auth
+def validate():
+    """
+    POST /api/auth/validate
+    Verify token is valid and return extended session info
+    Requires: Authorization: Bearer <token>
+    """
+    user = User.query.get(request.user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    token_expires_in = int(
+        (request.session.expires_at - datetime.utcnow()).total_seconds()
+    )
+    
+    return jsonify({
+        "ok": True,
+        "user_id": request.user_id,
+        "session_id": request.session_id,
+        "token_expires_in": max(0, token_expires_in),
+        "username": user.username,
+    }), 200
+
+
+@auth_bp.post("/logout")
+@require_auth
+def logout():
+    """
+    POST /api/auth/logout
+    Revoke current session token
+    Requires: Authorization: Bearer <token>
+    """
+    request.session.is_active = False
+    db.session.commit()
+    
+    current_app.logger.info(f"User {request.user_id} (session {request.session_id}) logged out")
+    
+    return jsonify({"ok": True}), 200
+
+
+@auth_bp.post("/refresh")
+@require_auth
+def refresh():
+    """
+    POST /api/auth/refresh
+    Refresh JWT token (optional: can be used for token rotation)
+    Requires: Authorization: Bearer <token>
+    """
+    # Revoke old session
+    request.session.is_active = False
+    
+    # Create new session
+    session_id = generate_uuid()
+    token = generate_token(request.user_id, current_app.config)
+    expires_at = datetime.utcnow() + current_app.config.JWT_EXPIRY
+    
+    new_session = Session(
+        id=session_id,
+        user_id=request.user_id,
+        token=token,
+        expires_at=expires_at,
+        is_active=True
+    )
+    db.session.add(new_session)
+    db.session.commit()
+    
+    current_app.logger.info(f"User {request.user_id} token refreshed")
+    
+    return jsonify({
+        "ok": True,
+        "token": token,
+        "expires_in": int(current_app.config.JWT_EXPIRY.total_seconds()),
+        "session_id": session_id,
+    }), 200
