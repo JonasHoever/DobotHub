@@ -5,6 +5,23 @@ Supports .env file loading via python-dotenv
 
 import os
 from datetime import timedelta
+from urllib.parse import quote_plus
+
+from dotenv import load_dotenv
+
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+
+def build_db_uri() -> str:
+    """Build SQLAlchemy MariaDB URI from environment variables."""
+    host = os.getenv("MARIADB_HOST", "localhost")
+    port = int(os.getenv("MARIADB_PORT", 3306))
+    user = os.getenv("MARIADB_USER", "dobot_user")
+    password = quote_plus(os.getenv("MARIADB_PASSWORD", ""))
+    database = os.getenv("MARIADB_DATABASE", "dobot_hub")
+    return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
 
 class Config:
     """Base configuration"""
@@ -20,10 +37,7 @@ class Config:
     MARIADB_PASSWORD = os.getenv("MARIADB_PASSWORD", "")
     MARIADB_DATABASE = os.getenv("MARIADB_DATABASE", "dobot_hub")
     
-    SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{MARIADB_USER}:{MARIADB_PASSWORD}@"
-        f"{MARIADB_HOST}:{MARIADB_PORT}/{MARIADB_DATABASE}"
-    )
+    SQLALCHEMY_DATABASE_URI = build_db_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Auth & JWT

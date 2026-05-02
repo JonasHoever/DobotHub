@@ -23,7 +23,9 @@ if [ ! -f ".env" ]; then
 fi
 
 # Get config from .env
+set -a
 source .env
+set +a
 
 # Check required environment variables
 if [ -z "$MARIADB_HOST" ] || [ -z "$MARIADB_USER" ] || [ -z "$MARIADB_DATABASE" ]; then
