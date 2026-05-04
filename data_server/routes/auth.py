@@ -17,10 +17,10 @@ def register():
     POST /api/auth/register
     Register a new user
     """
-    data = request.get_json()
-    username = data.get("username", "").strip()
-    password = data.get("password", "")
-    email = data.get("email", "").strip()
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    email = (data.get("email") or "").strip()
     
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
@@ -55,9 +55,9 @@ def login():
     Login with username/password
     Returns JWT token and session info
     """
-    data = request.get_json()
-    username = data.get("username", "").strip()
-    password = data.get("password", "")
+    data = request.get_json() or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
     
     if not username or not password:
         return jsonify({"error": "Username and password required"}), 400
