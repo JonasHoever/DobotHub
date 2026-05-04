@@ -1,0 +1,7 @@
+{
+  "name": "test_1",
+  "version": 1,
+  "workspace_xml": "<xml xmlns=\"https://developers.google.com/blockly/xml\"><block type=\"dobot_start\" id=\"/6f8M}~^V/To!_R@xUIW\" x=\"16\" y=\"8\"><next><block type=\"dobot_stop\" id=\"Dopdn}BnyD.]PM|bw!.n\"></block></next></block></xml>",
+  "code": "# --- SCRIPT START ---\ncore.seq_stop()\nraise Exception('Script stopped by block')\n",
+  "saved_at": 1777894778
+}

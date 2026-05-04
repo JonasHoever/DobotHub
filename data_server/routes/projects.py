@@ -200,6 +200,25 @@ def update_project(project_id: str):
         }
     }), 200
 
+@projects_bp.post("/<project_id>/invite")
+@require_auth
+def get_invite_link(project_id: str):
+    """
+    POST /api/projects/<project_id>/invite
+    Generate an invite link for sharing
+    """
+    project = db.session.query(Project).get(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+        
+    server_host = request.host_url.rstrip("/")
+    invite_link = f"{server_host}/invite/{project_id}"
+    
+    return jsonify({
+        "ok": True,
+        "invite_link": invite_link
+    }), 200
+
 
 @projects_bp.delete("/<project_id>")
 @require_auth

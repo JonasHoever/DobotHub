@@ -24,31 +24,31 @@
         height: 100%;
       }
       :root {
-        /* DobotHub Theme Palette: Dark Gray & Orange */
-        --bg: #0e0e0e;
-        --panel: #1c1c1c;
-        --deep: #141414;
-        --border: #262626;
-        --sep: #222222;
-        --text: #ffffff;
-        --dim: #b0b0b0;
-        --muted: #7a7a7a;
+        /* Gymshark Neon Onyx Theme */
+        --bg: #050505;
+        --panel: #111111;
+        --deep: #000000;
+        --border: #222222;
+        --sep: #1a1a1a;
+        --text: #f4f4f5;
+        --dim: #a1a1aa;
+        --muted: #52525b;
         
-        /* Dobot Orange */
-        --accent: #ff9500;
-        --accent-h: #ffad33;
-        --accent-p: #cc7700;
+        /* Neon Accent (Electric Cyan) */
+        --accent: #00f3ff;
+        --accent-h: #4df5ff;
+        --accent-p: #00b9c2;
         
-        /* Status Colors */
-        --amber: #ffb300;
-        --amber-h: #ffc433;
-        --danger: #cf3535;
-        --danger-h: #df4444;
-        --success: #28a745;
-        --success-h: #31c252;
-        --warn: #eab308;
-        --ok: #1abc6a;
-        --bad: #cf3535;
+        /* Status Colors (Neon variants) */
+        --amber: #ccff00;    /* Neon Volt */
+        --amber-h: #d9ff33;
+        --danger: #ff003c;   /* Neon Pink/Red */
+        --danger-h: #ff3363;
+        --success: #00ff41;  /* Neon Green */
+        --success-h: #33ff67;
+        --warn: #ffea00;
+        --ok: #00ff41;
+        --bad: #ff003c;
         
         /* Fonts */
         --mono: "Consolas", monospace;
@@ -916,6 +916,14 @@
       <div class="brand">DOBOT <em>HUB</em></div>
       <div class="header-center">
         <input type="text" id="search-bar" placeholder="Search sequences, blocks...">
+        <button id="btn-cloud-upload" class="ghost" style="margin-left: 1rem; border-color: #28a745; color: #28a745; display:none;" title="Save to Cloud">
+          <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Save
+        </button>
+        <button id="btn-share" class="ghost" style="margin-left: 0.5rem; border-color: var(--amber); color: var(--amber); display:none;">
+          <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+          Invite
+        </button>
       </div>
       <div class="header-right">
         <span class="sdot" id="dot"></span>
@@ -1339,6 +1347,21 @@
         <div class="btn-row">
           <button id="login-cancel" class="ghost">Cancel</button>
           <button id="lm-submit" class="primary">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invite Modal -->
+    <div id="invite-modal" class="modal hidden">
+      <div class="mbox">
+        <div class="mtitle">Invite Collaborators</div>
+        <div style="margin: 1.5rem 0;">
+          <p style="color: var(--dim); font-size: 0.9rem; margin-bottom: 1rem;">Share this link to collaborate live on this project:</p>
+          <input type="text" id="invite-link-input" readonly style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--accent); font-family: monospace;">
+        </div>
+        <div class="btn-row">
+          <button id="invite-copy" class="ghost">Copy Link</button>
+          <button id="invite-close" class="primary">Done</button>
         </div>
       </div>
     </div>
@@ -2860,6 +2883,80 @@
       // ── Init ──────────────────────────────────────────────────────────────────────
       document.addEventListener("DOMContentLoaded", () => {
         startSse();
+        
+        const $inviteLink = $("invite-link-input");
+        const $inviteModal = $("invite-modal");
+
+        $("btn-share").onclick = async () => {
+          try {
+            updateStatus('Creating cloud link...');
+            let projectId = S.cloud_project_id;
+            const payload = {
+              name: "Shared Dobot Project",
+              type: "blockly",
+              content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
+            };
+            if (projectId) {
+              payload.project_id = projectId;
+            }
+            
+            // 1. Create or save project
+            const res = await post('/api/cloud/projects', payload);
+            if (res.project && res.project.id) projectId = res.project.id;
+            
+            if (projectId) {
+              S.cloud_project_id = projectId;
+              const linkRes = await post(`/api/cloud/projects/${projectId}/invite`, {});
+              if (linkRes.invite_link) {
+                $inviteLink.value = linkRes.invite_link;
+                $inviteModal.classList.remove('hidden');
+                updateStatus('Invite link ready');
+              } else {
+                updateStatus('Error generating invite link', 'error');
+              }
+            } else {
+              updateStatus('Could not save cloud project', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            updateStatus('Failed to share project', 'error');
+          }
+        };
+
+        $("btn-cloud-upload").onclick = async () => {
+          try {
+            updateStatus('Saving to cloud...');
+            let projectId = S.cloud_project_id;
+            const payload = {
+              name: "Shared Dobot Project",
+              type: "blockly",
+              content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
+            };
+            if (projectId) {
+              payload.project_id = projectId;
+            }
+            
+            const res = await post('/api/cloud/projects', payload);
+            if (res.project && res.project.id) {
+              S.cloud_project_id = res.project.id;
+              updateStatus('Project saved to cloud', 'success');
+            } else {
+              updateStatus('Failed to save to cloud', 'error');
+            }
+          } catch (e) {
+            console.error(e);
+            updateStatus('Failed to upload project', 'error');
+          }
+        };
+
+        $("invite-copy").onclick = () => {
+          $inviteLink.select();
+          document.execCommand('copy');
+          $("invite-copy").textContent = "Copied!";
+          setTimeout(() => $("invite-copy").textContent = "Copy Link", 2000);
+        };
+
+        $("invite-close").onclick = () => $inviteModal.classList.add("hidden");
 
         $("btn-refresh").onclick = () => post("/api/refresh");
         $("btn-connect").onclick = () => {
@@ -3412,6 +3509,8 @@
           const $cloudStatus = $("cloud-status");
           const $btnLogin = $("btn-login");
           const $btnLogout = $("btn-logout");
+          const $btnShare = $("btn-share");
+          const $btnCloudUpload = $("btn-cloud-upload");
 
           if (status.authenticated) {
             $cloudStatus.textContent = `● ONLINE (${status.user_id?.slice(0, 8) || "User"})`;
@@ -3419,10 +3518,40 @@
             $cloudStatus.style.background = status.is_online ? "#28a745" : "#ffb300";
             $btnLogin.style.display = "none";
             $btnLogout.style.display = "inline-block";
+            $btnShare.style.display = "inline-block";
+            $btnCloudUpload.style.display = "inline-block";
+            
+            // On load, handle `join_project` parameter directly after auth checked
+            const params = new URLSearchParams(window.location.search);
+            const joinPid = params.get("join_project");
+            if (joinPid) {
+              fetch(`/api/cloud/projects/${joinPid}`)
+                .then(r => r.json())
+                .then(data => {
+                  if (data.id && data.content && data.content.sequences) {
+                    S.sequences = data.content.sequences;
+                    S.cloud_project_id = data.id;
+                    updateStatus('Joined shared cloud project');
+                    renderSequences();
+                  } else {
+                    updateStatus('Failed to load project: ' + (data.error || 'Unknown format'), 'error');
+                  }
+                })
+                .catch(err => {
+                  console.error(err);
+                  updateStatus('Failed to join project', 'error');
+                })
+                .finally(() => {
+                  // Clear query param so we don't refetch on a manual refresh
+                  window.history.replaceState({}, document.title, "/");
+                });
+            }
           } else {
             $cloudStatus.style.display = "none";
             $btnLogin.style.display = "inline-block";
             $btnLogout.style.display = "none";
+            $btnShare.style.display = "none";
+            $btnCloudUpload.style.display = "none";
           }
         } catch (e) {
           console.log("Cloud status check failed:", e);

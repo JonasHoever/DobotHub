@@ -1954,6 +1954,22 @@ def api_cloud_projects():
     result = sync_manager.get_projects()
     return jsonify(result), 200 if result.get("ok", True) else 400
 
+@app.post("/api/cloud/projects/<project_id>/invite")
+def api_cloud_invite(project_id):
+    """Get project invite link from data server"""
+    resp = requests.post(f"{sync_manager.server_url}/api/projects/{project_id}/invite", headers=sync_manager.get_auth_header())
+    if resp.ok:
+        return jsonify(resp.json()), 200
+    return jsonify(error="Failed to generate invite"), 400
+
+@app.get("/api/cloud/projects/<project_id>")
+def api_cloud_get_project(project_id):
+    """Get a project from remote server"""
+    resp = requests.get(f"{sync_manager.server_url}/api/projects/{project_id}", headers=sync_manager.get_auth_header())
+    if resp.ok:
+        return jsonify(resp.json()), 200
+    return jsonify(error="Failed to fetch project"), 400
+
 
 @app.post("/api/cloud/projects")
 def api_cloud_save_project():

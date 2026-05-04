@@ -53,6 +53,36 @@ def create_app(config_name: str = None):
     @app.get("/favicon.ico")
     def favicon():
         return "", 204  # No Content
+        
+    @app.get("/invite/<project_id>")
+    def handle_invite(project_id):
+        # Generates a page that redirects to the user's local web server on port 8080
+        from flask import render_template_string
+        return render_template_string("""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Join Dobot Project</title>
+            <style>
+                body { background: #0e0e0e; color: #fff; font-family: sans-serif; text-align: center; padding: 50px; }
+                a { color: #ff9500; text-decoration: none; }
+            </style>
+            <script>
+                setTimeout(() => {
+                    const localUrl = "http://127.0.0.1:8080/?join_project=" + encodeURIComponent("{{ pid }}");
+                    window.location.href = localUrl;
+                }, 1500);
+            </script>
+        </head>
+        <body>
+            <h2>Redirecting to your local Dobot UI...</h2>
+            <p>If you are not redirected automatically, <a id="link" href="#">click here</a>.</p>
+            <script>
+                document.getElementById('link').href = "http://127.0.0.1:8080/?join_project=" + encodeURIComponent("{{ pid }}");
+            </script>
+        </body>
+        </html>
+        """, pid=project_id)
     
     # Initialize database tables
     with app.app_context():
