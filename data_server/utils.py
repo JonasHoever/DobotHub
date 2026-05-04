@@ -19,18 +19,24 @@ def generate_uuid() -> str:
 
 def generate_token(user_id: str, app_config) -> str:
     """Generate a JWT token"""
+    expiry = app_config.get("JWT_EXPIRY", timedelta(hours=24))
+    secret = app_config.get("JWT_SECRET", "jwt-secret-change-in-production")
+    algorithm = app_config.get("JWT_ALGORITHM", "HS256")
+    
     payload = {
         "user_id": user_id,
         "iat": datetime.utcnow(),
-        "exp": datetime.utcnow() + app_config.JWT_EXPIRY,
+        "exp": datetime.utcnow() + expiry,
     }
-    return jwt.encode(payload, app_config.JWT_SECRET, algorithm=app_config.JWT_ALGORITHM)
+    return jwt.encode(payload, secret, algorithm=algorithm)
 
 
 def verify_token(token: str, app_config) -> dict or None:
     """Verify JWT token and return payload"""
+    secret = app_config.get("JWT_SECRET", "jwt-secret-change-in-production")
+    algorithm = app_config.get("JWT_ALGORITHM", "HS256")
     try:
-        payload = jwt.decode(token, app_config.JWT_SECRET, algorithms=[app_config.JWT_ALGORITHM])
+        payload = jwt.decode(token, secret, algorithms=[algorithm])
         return payload
     except jwt.ExpiredSignatureError:
         return None

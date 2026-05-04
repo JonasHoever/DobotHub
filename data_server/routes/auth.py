@@ -69,7 +69,8 @@ def login():
     # Create session and token
     session_id = generate_uuid()
     token = generate_token(user.id, current_app.config)
-    expires_at = datetime.utcnow() + current_app.config.JWT_EXPIRY
+    expiry = current_app.config.get("JWT_EXPIRY", timedelta(hours=24))
+    expires_at = datetime.utcnow() + expiry
     
     session = Session(
         id=session_id,
