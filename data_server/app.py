@@ -52,6 +52,11 @@ def create_app(config_name: str = None):
     def health():
         return {"status": "ok"}, 200
     
+    # Favicon endpoint (prevents 404 errors)
+    @app.get("/favicon.ico")
+    def favicon():
+        return "", 204  # No Content
+    
     # Initialize database tables
     with app.app_context():
         db.create_all()

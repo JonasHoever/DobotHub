@@ -5,13 +5,11 @@ Uses SQLAlchemy ORM
 
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Boolean, Index
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from app import db
 
-Base = declarative_base()
 
-
-class User(Base):
+class User(db.Model):
     __tablename__ = "users"
     
     id = Column(String(36), primary_key=True)  # UUID
@@ -32,7 +30,7 @@ class User(Base):
     )
 
 
-class Session(Base):
+class Session(db.Model):
     __tablename__ = "sessions"
     
     id = Column(String(36), primary_key=True)  # UUID
@@ -53,7 +51,7 @@ class Session(Base):
     )
 
 
-class Project(Base):
+class Project(db.Model):
     __tablename__ = "projects"
     
     id = Column(String(36), primary_key=True)  # UUID
@@ -88,7 +86,7 @@ class Project(Base):
     )
 
 
-class ProjectVersion(Base):
+class ProjectVersion(db.Model):
     __tablename__ = "project_versions"
     
     id = Column(String(36), primary_key=True)  # UUID
@@ -109,7 +107,7 @@ class ProjectVersion(Base):
     )
 
 
-class CollaborationEvent(Base):
+class CollaborationEvent(db.Model):
     __tablename__ = "collaboration_events"
     
     id = Column(String(36), primary_key=True)  # UUID
@@ -130,7 +128,7 @@ class CollaborationEvent(Base):
     )
 
 
-class Presence(Base):
+class Presence(db.Model):
     __tablename__ = "presence"
     
     id = Column(String(36), primary_key=True)  # UUID

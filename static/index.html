@@ -1331,10 +1331,49 @@
             <input type="password" id="login-password" placeholder="••••••" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
           </div>
           <div id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 0.8rem;"></div>
+          <div style="margin-top: 1rem; text-align: center; font-size: 0.85rem;">
+            <span style="color: var(--dim);">Don't have an account? </span>
+            <button id="login-to-register" class="ghost" style="background: none; border: none; color: var(--accent); text-decoration: underline; padding: 0; font-size: 0.85rem; cursor: pointer;">Register here</button>
+          </div>
         </div>
         <div class="btn-row">
           <button id="login-cancel" class="ghost">Cancel</button>
           <button id="lm-submit" class="primary">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cloud Registration Modal -->
+    <div id="register-modal" class="modal hidden">
+      <div class="mbox">
+        <div class="mtitle">Create Account</div>
+        <div style="margin: 1.5rem 0;">
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Username</label>
+            <input type="text" id="register-username" placeholder="myusername" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div style="margin-top: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Email (optional)</label>
+            <input type="email" id="register-email" placeholder="your@email.com" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div style="margin-top: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Password</label>
+            <input type="password" id="register-password" placeholder="••••••" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div style="margin-top: 1rem;">
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--dim);">Confirm Password</label>
+            <input type="password" id="register-password-confirm" placeholder="••••••" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.25rem; background: var(--deep); color: var(--text); font-family: monospace;">
+          </div>
+          <div id="register-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 0.8rem;"></div>
+          <div id="register-success" style="color: var(--success); font-size: 0.85rem; margin-top: 0.8rem;"></div>
+          <div style="margin-top: 1rem; text-align: center; font-size: 0.85rem;">
+            <span style="color: var(--dim);">Already have an account? </span>
+            <button id="register-to-login" class="ghost" style="background: none; border: none; color: var(--accent); text-decoration: underline; padding: 0; font-size: 0.85rem; cursor: pointer;">Login here</button>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button id="register-cancel" class="ghost">Cancel</button>
+          <button id="rm-submit" class="primary">Register</button>
         </div>
       </div>
     </div>
@@ -3206,12 +3245,39 @@
         };
         $("login-cancel").onclick = closeLoginModal;
         $("lm-submit").onclick = submitLogin;
+        $("login-to-register").onclick = () => {
+          closeLoginModal();
+          $("register-modal").classList.remove("hidden");
+          $("register-username").focus();
+        };
         
         $("login-username").addEventListener("keydown", (e) => {
           if (e.key === "Enter") submitLogin();
         });
         $("login-password").addEventListener("keydown", (e) => {
           if (e.key === "Enter") submitLogin();
+        });
+
+        // Cloud Registration Handler
+        $("register-modal").onclick = (e) => {
+          if (e.target === $("register-modal")) closeRegisterModal();
+        };
+        $("register-cancel").onclick = closeRegisterModal;
+        $("rm-submit").onclick = submitRegister;
+        $("register-to-login").onclick = () => {
+          closeRegisterModal();
+          $("login-modal").classList.remove("hidden");
+          $("login-username").focus();
+        };
+        
+        $("register-username").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") submitRegister();
+        });
+        $("register-password").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") submitRegister();
+        });
+        $("register-password-confirm").addEventListener("keydown", (e) => {
+          if (e.key === "Enter") submitRegister();
         });
 
         // Check cloud status on load
@@ -3224,6 +3290,16 @@
         $("login-username").value = "";
         $("login-password").value = "";
         $("login-error").textContent = "";
+      }
+
+      function closeRegisterModal() {
+        $("register-modal").classList.add("hidden");
+        $("register-username").value = "";
+        $("register-email").value = "";
+        $("register-password").value = "";
+        $("register-password-confirm").value = "";
+        $("register-error").textContent = "";
+        $("register-success").textContent = "";
       }
 
       async function submitLogin() {
@@ -3259,6 +3335,71 @@
         } finally {
           $("lm-submit").disabled = false;
           $("lm-submit").textContent = "Login";
+        }
+      }
+
+      async function submitRegister() {
+        const username = $("register-username").value.trim();
+        const email = $("register-email").value.trim();
+        const password = $("register-password").value;
+        const passwordConfirm = $("register-password-confirm").value;
+
+        // Clear previous messages
+        $("register-error").textContent = "";
+        $("register-success").textContent = "";
+
+        // Validation
+        if (!username || !password) {
+          $("register-error").textContent = "Username and password required";
+          return;
+        }
+
+        if (password.length < 6) {
+          $("register-error").textContent = "Password must be at least 6 characters";
+          return;
+        }
+
+        if (password !== passwordConfirm) {
+          $("register-error").textContent = "Passwords do not match";
+          return;
+        }
+
+        $("rm-submit").disabled = true;
+        $("rm-submit").textContent = "Registering...";
+
+        try {
+          const resp = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              username, 
+              password,
+              email: email || null
+            }),
+          });
+
+          if (resp.ok) {
+            $("register-success").textContent = "Account created successfully! Logging in...";
+            setTimeout(() => {
+              closeRegisterModal();
+              // Auto-login after registration
+              $("login-username").value = username;
+              $("login-password").value = password;
+              submitLogin();
+            }, 1000);
+          } else if (resp.status === 409) {
+            $("register-error").textContent = "Username already exists";
+          } else if (resp.status === 503) {
+            $("register-error").textContent = "Server offline - please try again later";
+          } else {
+            const data = await resp.json();
+            $("register-error").textContent = data.error || "Registration failed";
+          }
+        } catch (e) {
+          $("register-error").textContent = `Network error: ${e.message}`;
+        } finally {
+          $("rm-submit").disabled = false;
+          $("rm-submit").textContent = "Register";
         }
       }
 
