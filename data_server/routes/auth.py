@@ -165,7 +165,7 @@ def refresh():
     
     return jsonify({
         "ok": True,
-        "token": token,expiry
-        "expires_in": int(current_app.config.JWT_EXPIRY.total_seconds()),
+        "token": token,
+        "expires_in": int(expiry.total_seconds()),
         "session_id": session_id,
     }), 200
