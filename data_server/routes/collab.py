@@ -22,8 +22,8 @@ def acquire_lock(project_id: str):
     if not project:
         return jsonify({"error": "Project not found"}), 404
     
-    data = request.get_json()
-    ttl_seconds = data.get("ttl_seconds", current_app.config.LOCK_TTL_SECONDS)
+    data = request.get_json() or {}
+    ttl_seconds = data.get("ttl_seconds", current_app.config.get("LOCK_TTL_SECONDS", 300))
     
     # Check if already locked by another user
     if project.locked_by and project.locked_by != request.user_id:

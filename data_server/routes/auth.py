@@ -87,7 +87,7 @@ def login():
     return jsonify({
         "ok": True,
         "token": token,
-        "expires_in": int(current_app.config.JWT_EXPIRY.total_seconds()),
+        "expires_in": int(expiry.total_seconds()),
         "user_id": user.id,
         "session_id": session_id,
     }), 200
@@ -148,7 +148,8 @@ def refresh():
     # Create new session
     session_id = generate_uuid()
     token = generate_token(request.user_id, current_app.config)
-    expires_at = datetime.utcnow() + current_app.config.JWT_EXPIRY
+    expiry = current_app.config.get("JWT_EXPIRY", timedelta(hours=24))
+    expires_at = datetime.utcnow() + expiry
     
     new_session = Session(
         id=session_id,
@@ -164,7 +165,7 @@ def refresh():
     
     return jsonify({
         "ok": True,
-        "token": token,
+        "token": token,expiry
         "expires_in": int(current_app.config.JWT_EXPIRY.total_seconds()),
         "session_id": session_id,
     }), 200
