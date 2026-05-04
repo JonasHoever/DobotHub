@@ -4,8 +4,7 @@ data_server/routes/auth.py — Authentication endpoints (login, validate, logout
 
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
-from app import db
-from models import User, Session
+from models import db, User, Session
 from utils import generate_uuid, generate_token, verify_token, hash_password, verify_password, require_auth
 
 auth_bp = Blueprint("auth", __name__)

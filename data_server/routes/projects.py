@@ -4,8 +4,7 @@ data_server/routes/projects.py — Project CRUD and revision management
 
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
-from app import db
-from models import Project, ProjectVersion, User
+from models import db, Project, ProjectVersion, User
 from utils import generate_uuid, require_auth, compute_checksum
 import json
 

@@ -7,11 +7,8 @@ import os
 import logging
 from flask import Flask
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from config import config
-
-# Initialize extensions
-db = SQLAlchemy()
+from models import db
 
 def create_app(config_name: str = None):
     """Application factory"""

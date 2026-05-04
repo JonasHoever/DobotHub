@@ -9,8 +9,7 @@ import json
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, current_app
-from app import db
-from models import Session, User
+from models import db, Session, User
 
 
 def generate_uuid() -> str:

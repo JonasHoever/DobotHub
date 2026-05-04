@@ -4,8 +4,7 @@ data_server/routes/collab.py — Collaboration endpoints (lock, presence, events
 
 from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime, timedelta
-from app import db
-from models import Project, Presence, CollaborationEvent, Session
+from models import db, Project, Presence, CollaborationEvent, Session
 from utils import generate_uuid, require_auth
 import json
 

@@ -6,8 +6,9 @@ Uses SQLAlchemy ORM
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Boolean, Index
 from sqlalchemy.orm import relationship
-from app import db
+from flask_sqlalchemy import SQLAlchemy
 
+db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = "users"

@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import requests
 import json
-from app import create_app, db
-from models import User
+from app import create_app
+from models import db, User
 from utils import generate_uuid, hash_password
 
 BASE_URL = "http://localhost:5001"
