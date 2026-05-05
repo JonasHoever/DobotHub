@@ -108,11 +108,11 @@
         flex: 1;
         display: flex;
         justify-content: center;
-        margin: 0 40px;
+        margin: 0 2vw;
       }
       #search-bar {
         width: 100%;
-        max-width: 500px;
+        max-width: 300px;
         margin: 0;
         height: 38px;
         padding: 0 14px;
@@ -134,7 +134,8 @@
       .header-right {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 10px;
+        flex-wrap: nowrap;
       }
       .user-avatar {
         width: 34px;
@@ -915,16 +916,16 @@
     <header>
       <div class="brand">DOBOT <em>HUB</em></div>
       <div class="header-center">
-        <input type="text" id="search-bar" placeholder="Search sequences, blocks...">
-        <button id="btn-cloud-upload" class="ghost" style="margin-left: 1rem; border-color: #28a745; color: #28a745; display:none;" title="Save to Cloud">
+        <input type="text" id="search-bar" placeholder="Search...">
+        <button id="btn-cloud-upload" class="ghost" style="margin-left: 0.5rem; border-color: #28a745; color: #28a745; display:none; padding: 6px 10px; white-space: nowrap;" title="Save to Cloud">
           <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           Save
         </button>
-        <button id="btn-cloud-projects" class="ghost" style="margin-left: 0.5rem; border-color: #007bff; color: #007bff; display:none;" title="My Cloud Projects">
+        <button id="btn-cloud-projects" class="ghost" style="margin-left: 0.5rem; border-color: #007bff; color: #007bff; display:none; padding: 6px 10px; white-space: nowrap;" title="My Cloud Projects">
           <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
-          Cloud Projects
+          Projects
         </button>
-        <button id="btn-share" class="ghost" style="margin-left: 0.5rem; border-color: var(--amber); color: var(--amber); display:none;">
+        <button id="btn-share" class="ghost" style="margin-left: 0.5rem; border-color: var(--amber); color: var(--amber); display:none; padding: 6px 10px; white-space: nowrap;">
           <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
           Invite
         </button>
@@ -935,12 +936,12 @@
         <select id="port-select">
           <option value="">No ports</option>
         </select>
-        <button id="btn-refresh" class="ghost">↻</button>
+        <button id="btn-refresh" class="ghost" style="padding: 6px 12px; margin-right: -8px;">↻</button>
         <button id="btn-connect" class="primary">Connect</button>
         <button id="btn-home" class="ghost">Home</button>
-        <span id="cloud-status" style="display:none; margin-left: 1rem; padding: 0.3rem 0.8rem; border-radius: 0.25rem; background: #28a745; font-size: 0.75rem; font-weight: 600;">● ONLINE</span>
-        <button id="btn-login" class="ghost" style="margin-left: 1rem;">Login</button>
-        <button id="btn-logout" class="ghost" style="display:none; margin-left: 1rem;">Logout</button>
+        <span id="cloud-status" style="display:none; padding: 0.3rem 0.6rem; border-radius: 0.25rem; background: #28a745; font-size: 0.75rem; font-weight: 600; white-space: nowrap;">● ONLINE</span>
+        <button id="btn-login" class="ghost">Login</button>
+        <button id="btn-logout" class="ghost" style="display:none;">Logout</button>
       </div>
     </header>
 
@@ -1198,6 +1199,7 @@
     <xml id="toolbox" style="display: none">
       <category name="Dobot" colour="230">
         <block type="dobot_start"></block>
+        <block type="dobot_inline_python"></block>
         <block type="dobot_raw_python"></block>
         <block type="dobot_stop"></block>
         <block type="dobot_log">
@@ -1494,6 +1496,24 @@
       };
       registerPyBlock("dobot_raw_python", function(block) {
         let code = String(block.data || "").replace(/\r\n/g, "\n");
+        if (code && !code.endsWith("\n")) code += "\n";
+        return code;
+      });
+
+      Blockly.Blocks["dobot_inline_python"] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("🐍 Python:")
+              .appendField(new Blockly.FieldMultilineInput("# python code"), "CODE");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(260);
+          this.setTooltip("Write Python code directly inside the block.");
+        }
+      };
+      registerPyBlock("dobot_inline_python", function(block) {
+        let code = block.getFieldValue("CODE") || "";
+        code = code.replace(/\r\n/g, "\n");
         if (code && !code.endsWith("\n")) code += "\n";
         return code;
       });
