@@ -1440,7 +1440,7 @@ class DobotCore:
 class RemoteSyncManager:
     """Manages sync between local DobotHub and remote data_server"""
     
-    def __init__(self, server_url: str = "http://localhost:5001"):
+    def __init__(self, server_url: str = "http://31.70.67.178:5001"):
         self.server_url = server_url
         self.token = None
         self.user_id = None
@@ -1598,7 +1598,7 @@ class RemoteSyncManager:
 
 core = DobotCore()
 sync_manager = RemoteSyncManager(
-    server_url=os.getenv("DOBOT_DATA_SERVER", "http://localhost:5001")
+    server_url=os.getenv("DOBOT_DATA_SERVER", "http://31.70.67.178:5001")
 )
 app = Flask(__name__)
 
