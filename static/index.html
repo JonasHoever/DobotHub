@@ -2892,7 +2892,7 @@
             updateStatus('Creating cloud link...');
             let projectId = S.cloud_project_id;
             const payload = {
-              name: "Shared Dobot Project",
+              name: "Shared Dobot Project " + new Date().getTime(),
               type: "blockly",
               content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
             };
@@ -2928,7 +2928,7 @@
             updateStatus('Saving to cloud...');
             let projectId = S.cloud_project_id;
             const payload = {
-              name: "Shared Dobot Project",
+              name: "Local Dobot Project " + new Date().getTime(),
               type: "blockly",
               content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
             };

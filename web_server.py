@@ -1555,15 +1555,26 @@ class RemoteSyncManager:
             return {"ok": True, "offline": True}
         
         try:
-            resp = requests.post(
-                f"{self.server_url}/api/projects",
-                json={"name": name, "type": proj_type, "content": content},
-                headers=self.get_auth_header(),
-                timeout=5
-            )
-            if resp.status_code == 201:
+            if project_id:
+                resp = requests.put(
+                    f"{self.server_url}/api/projects/{project_id}",
+                    json={"name": name, "type": proj_type, "content": content},
+                    headers=self.get_auth_header(),
+                    timeout=5
+                )
+            else:
+                resp = requests.post(
+                    f"{self.server_url}/api/projects",
+                    json={"name": name, "type": proj_type, "content": content},
+                    headers=self.get_auth_header(),
+                    timeout=5
+                )
+                
+            if resp.ok:
                 self.is_online = True
-                return resp.json()
+                ret = resp.json()
+                ret["ok"] = True
+                return ret
             elif resp.status_code == 409:
                 # Conflict
                 conflict_data = resp.json()
