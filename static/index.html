@@ -920,6 +920,10 @@
           <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           Save
         </button>
+        <button id="btn-cloud-projects" class="ghost" style="margin-left: 0.5rem; border-color: #007bff; color: #007bff; display:none;" title="My Cloud Projects">
+          <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+          Cloud Projects
+        </button>
         <button id="btn-share" class="ghost" style="margin-left: 0.5rem; border-color: var(--amber); color: var(--amber); display:none;">
           <svg style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
           Invite
@@ -1362,6 +1366,19 @@
         <div class="btn-row">
           <button id="invite-copy" class="ghost">Copy Link</button>
           <button id="invite-close" class="primary">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cloud Projects Modal -->
+    <div id="cloud-projects-modal" class="modal hidden">
+      <div class="mbox" style="max-width: 500px; width: 90%;">
+        <div class="mtitle">My Cloud Projects</div>
+        <div id="cloud-projects-list" style="margin: 1.5rem 0; max-height: 300px; overflow-y: auto; background: var(--deep); border: 1px solid var(--border); border-radius: 0.25rem;">
+          <div style="padding: 1rem; color: var(--dim); text-align: center;">Loading...</div>
+        </div>
+        <div class="btn-row">
+          <button id="cloud-projects-close" class="ghost">Cancel</button>
         </div>
       </div>
     </div>
@@ -2889,12 +2906,13 @@
 
         $("btn-share").onclick = async () => {
           try {
-            updateStatus('Creating cloud link...');
+            console.log('Creating cloud link...');
             let projectId = S.cloud_project_id;
+            const scriptSnap = typeof getScriptSnapshot === "function" ? getScriptSnapshot() : {workspaceXml: "", code: ""};
             const payload = {
               name: "Shared Dobot Project " + new Date().getTime(),
               type: "blockly",
-              content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
+              content: { sequences: S.steps || [], workspaceXml: scriptSnap.workspaceXml, pythonCode: scriptSnap.code }
             };
             if (projectId) {
               payload.project_id = projectId;
@@ -2910,27 +2928,28 @@
               if (linkRes.invite_link) {
                 $inviteLink.value = linkRes.invite_link;
                 $inviteModal.classList.remove('hidden');
-                updateStatus('Invite link ready');
+                console.log('Invite link ready');
               } else {
-                updateStatus('Error generating invite link', 'error');
+                alert('Error generating invite link');
               }
             } else {
-              updateStatus('Could not save cloud project', 'error');
+              alert('Could not save cloud project');
             }
           } catch (e) {
             console.error(e);
-            updateStatus('Failed to share project', 'error');
+            alert('Failed to share project');
           }
         };
 
         $("btn-cloud-upload").onclick = async () => {
           try {
-            updateStatus('Saving to cloud...');
+            console.log('Saving to cloud...');
             let projectId = S.cloud_project_id;
+            const scriptSnap = typeof getScriptSnapshot === "function" ? getScriptSnapshot() : {workspaceXml: "", code: ""};
             const payload = {
               name: "Local Dobot Project " + new Date().getTime(),
               type: "blockly",
-              content: { sequences: Object.keys(S.sequences).length ? S.sequences : { "My Sequence": [] } }
+              content: { sequences: S.steps || [], workspaceXml: scriptSnap.workspaceXml, pythonCode: scriptSnap.code }
             };
             if (projectId) {
               payload.project_id = projectId;
@@ -2939,13 +2958,13 @@
             const res = await post('/api/cloud/projects', payload);
             if (res.project && res.project.id) {
               S.cloud_project_id = res.project.id;
-              updateStatus('Project saved to cloud', 'success');
+              alert('Project saved to cloud successfully!');
             } else {
-              updateStatus('Failed to save to cloud', 'error');
+              alert('Failed to save to cloud');
             }
           } catch (e) {
             console.error(e);
-            updateStatus('Failed to upload project', 'error');
+            alert('Failed to upload project');
           }
         };
 
@@ -3326,6 +3345,42 @@
             $("script-load-modal").classList.add("hidden");
         };
 
+        // Cloud Projects Handler
+        $("btn-cloud-projects").onclick = async () => {
+          $("cloud-projects-modal").classList.remove("hidden");
+          $("cloud-projects-list").innerHTML = '<div style="padding: 1rem; color: var(--dim); text-align: center;">Loading...</div>';
+          try {
+            const resp = await fetch("/api/cloud/projects");
+            const data = await resp.json();
+            const listObj = $("cloud-projects-list");
+            if (!resp.ok) throw new Error(data.error || 'Failed to load');
+            
+            if (!data.projects || data.projects.length === 0) {
+              listObj.innerHTML = '<div style="padding: 1rem; color: var(--dim); text-align: center;">No projects found in cloud.</div>';
+              return;
+            }
+
+            listObj.innerHTML = data.projects.map(p => `
+              <div style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: bold; color: var(--fg);">${p.name || p.id}</div>
+                  <div style="font-size: 0.8rem; color: var(--dim);">Rev: ${p.revision} · ${new Date(p.updated_at * 1000).toLocaleString()}</div>
+                </div>
+                <button class="primary" onclick="window.location.href='/?join_project=${p.id}'" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">Load</button>
+              </div>
+            `).join('');
+
+          } catch (e) {
+            $("cloud-projects-list").innerHTML = `<div style="padding: 1rem; color: var(--error); text-align: center;">Error: ${e.message}</div>`;
+          }
+        };
+
+        $("cloud-projects-close").onclick = () => $("cloud-projects-modal").classList.add("hidden");
+        $("cloud-projects-modal").onclick = (e) => {
+          if (e.target === $("cloud-projects-modal"))
+            $("cloud-projects-modal").classList.add("hidden");
+        };
+
         // Cloud Login Handler
         $("btn-login").onclick = () => {
           $("login-modal").classList.remove("hidden");
@@ -3511,6 +3566,7 @@
           const $btnLogout = $("btn-logout");
           const $btnShare = $("btn-share");
           const $btnCloudUpload = $("btn-cloud-upload");
+          const $btnCloudProjects = $("btn-cloud-projects");
 
           if (status.authenticated) {
             $cloudStatus.textContent = `● ONLINE (${status.user_id?.slice(0, 8) || "User"})`;
@@ -3520,6 +3576,7 @@
             $btnLogout.style.display = "inline-block";
             $btnShare.style.display = "inline-block";
             $btnCloudUpload.style.display = "inline-block";
+            $btnCloudProjects.style.display = "inline-block";
             
             // On load, handle `join_project` parameter directly after auth checked
             const params = new URLSearchParams(window.location.search);
@@ -3528,18 +3585,33 @@
               fetch(`/api/cloud/projects/${joinPid}`)
                 .then(r => r.json())
                 .then(data => {
-                  if (data.id && data.content && data.content.sequences) {
-                    S.sequences = data.content.sequences;
+                  if (data.id && data.content) {
+                    if (data.content.sequences) {
+                      post("/api/sequence/replace", { steps: data.content.sequences });
+                    }
+                    if (data.content.workspaceXml) {
+                       localStorage.setItem("dobot_hub_blockly", data.content.workspaceXml);
+                       if (typeof blocklyWorkspace !== "undefined" && typeof Blockly !== "undefined") {
+                         try {
+                           const dom = Blockly.Xml.textToDom(data.content.workspaceXml);
+                           blocklyWorkspace.clear();
+                           Blockly.Xml.domToWorkspace(dom, blocklyWorkspace);
+                         } catch (err) {
+                           console.error("Failed to inject shared blockly workspace", err);
+                         }
+                       }
+                    }
+                    if (data.content.pythonCode && $("script-editor")) {
+                       $("script-editor").value = data.content.pythonCode;
+                    }
                     S.cloud_project_id = data.id;
-                    updateStatus('Joined shared cloud project');
-                    renderSequences();
+                    console.log('Joined shared cloud project');
                   } else {
-                    updateStatus('Failed to load project: ' + (data.error || 'Unknown format'), 'error');
+                    console.error('Failed to load project: ' + (data.error || 'Unknown format'));
                   }
                 })
                 .catch(err => {
                   console.error(err);
-                  updateStatus('Failed to join project', 'error');
                 })
                 .finally(() => {
                   // Clear query param so we don't refetch on a manual refresh
@@ -3552,6 +3624,7 @@
             $btnLogout.style.display = "none";
             $btnShare.style.display = "none";
             $btnCloudUpload.style.display = "none";
+            $btnCloudProjects.style.display = "none";
           }
         } catch (e) {
           console.log("Cloud status check failed:", e);

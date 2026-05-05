@@ -1745,6 +1745,13 @@ def api_seq_clear():
     core.seq_clear()
     return ok()
 
+@app.post("/api/sequence/replace")
+def api_seq_replace():
+    steps = request.json.get("steps", [])
+    core.sequence = steps
+    core._push_steps()
+    return ok()
+
 
 @app.post("/api/sequence/save")
 def api_seq_save():

@@ -211,7 +211,9 @@ def get_invite_link(project_id: str):
     if not project:
         return jsonify({"error": "Project not found"}), 404
         
-    server_host = request.host_url.rstrip("/")
+    import os
+    # Default to the known server IP, allow override via env var PUBLIC_URL
+    server_host = os.environ.get("PUBLIC_URL", "http://31.70.67.178:5001").rstrip("/")
     invite_link = f"{server_host}/invite/{project_id}"
     
     return jsonify({
